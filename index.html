@@ -9,6 +9,7 @@ body {
  background-color: #cccccc;
   background-repeat: no-repeat;
  background-size:100% 100vh;
+word-wrap: break-word;
   
 }
 
@@ -38,7 +39,10 @@ body {
 background-color: #999999;
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
+ font-size: 17px;
 }
+
+
 
 .topnav {
   overflow: hidden;
@@ -90,23 +94,23 @@ background-color: #999999;
 .topnav .search-container button:hover {
   background: #ccc;
 }
-
-@media screen and (max-width: 600px) {
-  .topnav .search-container {
-    float: none;
-  }
-  .topnav a, .topnav input[type=text], .topnav .search-container button {
-    float: none;
-    display: block;
-    text-align: left;
-    width: 100%;
-    margin: 0;
-    padding: 14px;
-  }
-  .topnav input[type=text] {
-    border: 1px solid #ccc;  
-  }
+@media screen and (orientation:portrait) {
+body {
+ font-size: 30px;
 }
+.topnav input[type=text] {
+  font-size: 30px;
+}
+.topnav .search-container button {
+  font-size: 30px;
+}
+.topnav a {
+  font-size: 30px;
+}
+
+
+}
+
 /********************** Modal Style Begins **********************/
 
 /* The Modal (background) */
@@ -152,12 +156,11 @@ background-color: #999999;
 </head>
 <body>
 <div class="topnav">
-  <a class="active"  href="./index.html" >HOME</a>
+  <!-- a class="active"  href="./index.html" >HOME</a -->
   <a class="active"  onclick="DisplayAddPlaceModal()" style="color: white; background: black;cursor: pointer;">Add Place</a>
   <div class="search-container">
       <input type="text" placeholder="Search.."id="searchtext">
-      <button onclick="launchSearchAll()">Search Everywhere</button>
-      <button onclick="launchSearchNearMe()"><i class="fa fa-search"></i></button>
+      <button onclick="launchNewSearch()"><i class="fa fa-search"></i></button>
       
   </div>
 </div>
@@ -231,8 +234,10 @@ AppWebsocket.addEventListener('message', function (event) {
   }
 });
 //-------------------------------
-var NbPosts=93914
+var LibraryNbParts=7
+var SearchResults=[]
 loadLibrary()
+let gotuserposition=false
 //const MaxSearchedItems=10
 var userlatitude
 var userlongitude
@@ -256,7 +261,9 @@ function homeScreen() {
 function getLocation() {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(getUserPosition);
-  } else { 
+	gotuserposition=true
+  } else {
+	gotuserposition=false 
     x.innerHTML = "Geolocation is not supported by this browser.";
   }
 }
@@ -272,52 +279,50 @@ function getUserPosition(position) {
   document.getElementById('addplaceformlon-id').value=userlongitude
 }
 
-function launchSearchAll() {
-	usersearchnearme=false
-	launchNewSearch()
-}
 
-function launchSearchNearMe() {
-	usersearchnearme=true
-	getLocation()
-	launchNewSearch()
-}
-function launchNewSearch(){
-	
-	//if (!userlocationentred) {
-	//	
-	//}
-	
+function launchNewSearch() {
 	document.getElementById("myResultsList").innerHTML=""
+	
+	SearchResults=[]
+	getLocation()
+	if (!gotuserposition) {
+		usersearchnearme=true
+		launchSearch()
+	}
+	
+	usersearchnearme=false
+	console.log('Got POsition')
 	launchSearch()
 }
 
-async function launchSearch() {
-	let finalindex
-	if (usersearchnearme) {
-		initialindex=Math.floor(Math.random() * NbPosts)+1;
-		finalindex=initialindex//+MaxSearchedItems
-	} else {
-		initialindex=Math.floor(Math.random() * NbPosts)+1;
-		finalindex=Math.floor(Math.random() * NbPosts)+1;
-	}
-	for(let i = initialindex; i <=(finalindex) ; i++) {
-		//const myRequest = new Request('post4');
-		 //setTimeout(checkPost(i,nearme), 200)
-		 let k=i%NbPosts
-		 checkPost(k)
-		 await sleep(5);
+
+function launchSearch() {
+console.log('LibraryNbParts',LibraryNbParts)
+	for (let ti = LibraryNbParts; ti>0 ; ti--) {
+	
+		console.log('Checking LibraryPart',ti)
+		 checkLibraryPart(ti)
+		 //await sleep(2);
   	}
+	//usersearchnearme=false
+	
 }
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function checkPost(i) {
-		fetch('post/post'+i)
+function checkLibraryPart(i) {
+		fetch('Library/LibraryPart'+i.toString()+'.json')
 		.then(response => response.json())
-	  	.then(obj => filterPost(obj))
+	  	.then(obj => checkLibraryPartObj(obj))
+}
+
+function checkLibraryPartObj(LibraryPartObj){
+	for (let tm = 0; tm<LibraryPartObj.length ; tm++) {
+		filterPost(LibraryPartObj[tm])
+	}
+
 }
 
 function filterPost(obj) {
@@ -334,13 +339,17 @@ function filterPost(obj) {
 
   	//console.log(obj)
 	//
-	let distance=distanceInKmBetweenEarthCoordinates(userlatitude, userlongitude, obj.lat, obj.lon) 
-	//console.log(distance)
-	//if (!nearme) {
 	if (!usersearchnearme) {
 		addResult(obj)
 		return
 	}
+	//if (!gotuserposition) {
+	//	return
+	//}
+	let distance=distanceInKmBetweenEarthCoordinates(userlatitude, userlongitude, obj.lat, obj.lon) 
+	//console.log(distance)
+	//if (!nearme) {//
+
 	if (distance<=100) {
 		addResult(obj)
 	}
@@ -351,7 +360,7 @@ function addResult(obj) {
 
 // Create an "li" node:
 const node = document.createElement("li");
-node.style.cssText = 'list-style-type: none;margin: 0; padding: 0;'
+node.style.cssText = 'list-style-type: none;margin: 0; padding: 0;word-wrap: break-word;'
 
 node.innerHTML = "<br><br><h3>"+obj.name+"</h3>";//https://maps.google.com/?ll=latitude,longitude
 if ((obj.lat != undefined)&&(obj.lon != undefined)){
@@ -439,15 +448,17 @@ span.onclick = function() {
 }
 
 // When the user clicks anywhere outside of the addplacemodal, close it
+/*
 window.onclick = function(event) {
   if (event.target == addplacemodal) {
     addplacemodal.style.display = "none";
   }
 }
+*/
 /*********************** Modal Script Ends ***********************/
 ////////////////////////////////
 function loadLibrary(){
-	let libpath='post/library.json'
+	let libpath='Library/library.json'
 	fetch(libpath)
 	.then(response => response.json())
 	.then(libobj => setLibrary(libobj))
@@ -456,8 +467,8 @@ function loadLibrary(){
 	});
 }
 function setLibrary(libobj){
-	NbPosts=libobj.librarynbposts
-	console.log('NbPosts',NbPosts)
+	LibraryNbParts=libobj.librarynbparts
+	console.log('LibraryNbParts',LibraryNbParts)
 
 }
 ////////////////////////////////
@@ -529,12 +540,14 @@ function submitaddplaceForm(event){
       
 }
 function CachePostObject(tmppostobj){
-NbPosts++
-let tmppostobjstring=JSON.stringify(tmppostobj)
+let tmplibrarypart=[]
+LibraryNbParts++
+tmplibrarypart.push(tmppostobj)
+let tmplibrarypartobjstring=JSON.stringify(tmplibrarypart)
 const cacheRawStringRequest = {
     jsonrpc: '2.0',
     method: 'CacheRawString',
-    params: ['cryptonearme','post','post'+NbPosts.toString(),tmppostobjstring],
+    params: ['cryptonearme','Library','LibraryPart'+LibraryNbParts.toString(),tmplibrarypartobjstring],
     id: 2
   };
   
@@ -542,12 +555,12 @@ const cacheRawStringRequest = {
 }
 function CacheLibraryObject(){
  
-let tmplibraryobj={librarynbposts:NbPosts}
+let tmplibraryobj={librarynbparts:LibraryNbParts}
 let tmplibraryobjstring=JSON.stringify(tmplibraryobj)
 const cachelibraryobjRawStringRequest = {
     jsonrpc: '2.0',
     method: 'CacheRawString',
-    params: ['cryptonearme','post','library.json',tmplibraryobjstring],
+    params: ['cryptonearme','Library','library.json',tmplibraryobjstring],
     id: 2
   };
   
